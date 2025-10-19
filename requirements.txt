@@ -1,0 +1,15 @@
+# Dependências para o Timer Tool
+
+# Tkinter já vem incluído na instalação padrão do Python
+# Não há dependências externas necessárias para este projeto
+
+# Para sistemas Linux que não tenham tkinter instalado, execute:
+# sudo apt-get install python3-tk
+
+# Bibliotecas padrão utilizadas:
+# - tkinter (interface gráfica)
+# - json (persistência de dados)
+# - os (manipulação de arquivos)
+# - datetime (manipulação de datas/tempo)
+# - time (contagem de tempo)
+
