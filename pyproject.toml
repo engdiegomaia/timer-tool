@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "horas-trabalhadas"
+version = "1.1.0"
+description = "Sistema para rastrear horas trabalhadas em diferentes projetos"
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [
+    {name = "EDM Engenharia"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Office/Business",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+horas-trabalhadas = "horas_trabalhadas.contador_horas:main"
+
+[tool.setuptools]
+packages = ["horas_trabalhadas"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+

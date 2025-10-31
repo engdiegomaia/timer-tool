@@ -22,6 +22,9 @@ O Timer Tool é uma aplicação desktop que permite:
 6. **Persistência**: Histórico salvo automaticamente em `historico_horas.json`
 7. **Carregamento Automático**: O histórico é carregado ao iniciar o programa
 8. **Total Acumulado**: Exibe o total de horas já trabalhadas em cada projeto
+9. **Registro de Data**: Cada sessão de trabalho registra automaticamente a data e hora de início
+10. **Log Semanal**: Gera relatório detalhado das horas trabalhadas nos últimos 7 dias
+11. **Log Mensal**: Gera relatório detalhado das horas trabalhadas nos últimos 30 dias
 
 ## Requisitos
 
@@ -40,30 +43,46 @@ sudo apt-get install python3-tk
 
 ### Executar a Aplicação
 
-#### Opção 1: Usando os scripts prontos
+#### Opção 1: Instalação via pip (Recomendado)
+
+```bash
+pip install .
+```
+
+Após instalar, execute:
+```bash
+horas-trabalhadas
+```
+
+#### Opção 2: Usando os scripts prontos
 
 **Linux/Mac:**
 ```bash
-./executar.sh
+chmod +x scripts/executar.sh
+./scripts/executar.sh
 ```
 
 **Windows:**
 ```
-executar.bat
+scripts\executar.bat
 ```
-Ou simplesmente clique duas vezes no arquivo `executar.bat` no Windows Explorer.
+Ou simplesmente clique duas vezes no arquivo `scripts\executar.bat` no Windows Explorer.
 
-#### Opção 2: Executar diretamente com Python
+#### Opção 3: Usando Make (Linux/Mac)
 
-**Linux/Mac:**
 ```bash
-python3 contador_horas.py
+make install
+make run
 ```
 
-**Windows:**
+#### Opção 4: Executar diretamente com Python
+
+```bash
+# A partir da raiz do projeto
+python -m horas_trabalhadas.contador_horas
 ```
-python contador_horas.py
-```
+
+Para mais detalhes, consulte [INSTALL.md](INSTALL.md).
 
 ### Fluxo de Uso
 
@@ -86,28 +105,79 @@ python contador_horas.py
    - Selecione um projeto no dropdown
    - O total acumulado será exibido abaixo dos botões
 
+5. **Gerar Relatórios**:
+   - Clique em "Log Semanal" para ver horas dos últimos 7 dias
+   - Clique em "Log Mensal" para ver horas dos últimos 30 dias
+   - Os relatórios mostram todas as sessões com data/hora e duração de cada uma
+
 ## Estrutura dos Dados
 
 O histórico é salvo em `historico_horas.json` no seguinte formato:
 
 ```json
 {
-    "Nome do Projeto 1": 3600.5,
-    "Nome do Projeto 2": 7200.0,
-    "Nome do Projeto 3": 1800.25
+    "Nome do Projeto 1": {
+        "total_segundos": 3600.5,
+        "sessoes": [
+            {
+                "data": "2025-10-29T14:30:00",
+                "duracao_segundos": 3600.5
+            }
+        ]
+    },
+    "Nome do Projeto 2": {
+        "total_segundos": 7200.0,
+        "sessoes": [
+            {
+                "data": "2025-10-29T10:00:00",
+                "duracao_segundos": 7200.0
+            }
+        ]
+    }
 }
 ```
 
-Onde os valores representam o total de segundos trabalhados em cada projeto.
+Cada projeto contém:
+- **total_segundos**: Total acumulado de segundos trabalhados no projeto
+- **sessoes**: Lista de todas as sessões de trabalho com data/hora de início e duração
+
+O sistema realiza migração automática de dados do formato antigo (apenas número) para o novo formato (com sessões e datas).
 
 ## Arquivos do Projeto
 
-- `contador_horas.py`: Código principal da aplicação
-- `executar.sh`: Script bash para executar no Linux/Mac
-- `executar.bat`: Script batch para executar no Windows
+### Estrutura do Projeto
+
+```
+horas-trabalhadas/
+├── src/
+│   └── horas_trabalhadas/      # Código fonte
+│       ├── __init__.py
+│       └── contador_horas.py
+├── scripts/                    # Scripts de execução
+│   ├── executar.sh            # Linux/Mac
+│   └── executar.bat           # Windows
+├── data/                       # Dados gerados pela aplicação
+│   └── historico_horas.json   # (gerado automaticamente)
+├── setup.py                    # Script de instalação
+├── pyproject.toml             # Configuração do projeto
+├── Makefile                    # Comandos de build
+├── requirements.txt            # Dependências
+├── INSTALL.md                  # Guia de instalação
+└── README.md                   # Esta documentação
+```
+
+### Arquivos Principais
+
+- `src/horas_trabalhadas/contador_horas.py`: Código principal da aplicação
+- `scripts/executar.sh`: Script bash para executar no Linux/Mac
+- `scripts/executar.bat`: Script batch para executar no Windows
+- `setup.py`: Script de instalação do pacote
+- `pyproject.toml`: Configuração moderna do projeto Python
+- `Makefile`: Comandos para build, instalação e limpeza
 - `requirements.txt`: Documentação das dependências
-- `historico_horas.json`: Arquivo gerado automaticamente com o histórico de horas
+- `data/historico_horas.json`: Arquivo gerado automaticamente com o histórico de horas
 - `.gitignore`: Arquivos a serem ignorados pelo git
+- `INSTALL.md`: Guia detalhado de instalação
 - `README.md`: Esta documentação
 
 ## Estrutura do Código
@@ -123,8 +193,15 @@ Onde os valores representam o total de segundos trabalhados em cada projeto.
 - **`atualizar_total_projeto()`**: Exibe o total de horas do projeto selecionado
 - **`obter_projeto_selecionado()`**: Retorna o projeto ativo (novo ou existente)
 - **`iniciar_contagem()`**: Inicia o timer de contagem
-- **`parar_contagem()`**: Para o timer e salva no histórico
+- **`parar_contagem()`**: Para o timer e salva no histórico com data/hora
 - **`atualizar_display_tempo()`**: Atualiza o display a cada segundo
+- **`migrar_formato_historico()`**: Converte dados do formato antigo para o novo formato
+- **`filtrar_sessoes_por_periodo()`**: Filtra sessões dentro de um período específico
+- **`gerar_log_semanal()`**: Gera relatório das horas da última semana
+- **`gerar_log_mensal()`**: Gera relatório das horas do último mês
+- **`exibir_log()`**: Exibe relatório detalhado em janela separada
+- **`formatar_duracao()`**: Formata segundos para HH:MM:SS
+- **`centralizar_janela_log()`**: Centraliza janela de log na tela
 
 ## Interface Gráfica
 
@@ -136,6 +213,8 @@ A interface é construída com tkinter e inclui:
 - Display grande do tempo em execução (formato HH:MM:SS)
 - Botões "Iniciar" e "Parar"
 - Label mostrando o total acumulado do projeto selecionado
+- Botões "Log Semanal" e "Log Mensal" para gerar relatórios
+- Janelas de relatório com conteúdo centralizado e scrollbar
 
 ## Características Técnicas
 
@@ -150,10 +229,10 @@ A interface é construída com tkinter e inclui:
 Possíveis melhorias para versões futuras:
 - Exportar relatórios em CSV ou PDF
 - Gráficos de tempo por projeto
-- Histórico detalhado com timestamps de início e fim
 - Categorização de projetos
 - Backup automático do histórico
 - Modo escuro/claro
+- Filtros personalizados de data nos relatórios
 
 ## Licença
 
@@ -162,5 +241,5 @@ Este projeto é de uso livre para fins educacionais e profissionais.
 ---
 
 **Desenvolvido em**: Outubro de 2025
-**Versão**: 1.0
+**Versão**: 1.1
 

@@ -4,8 +4,8 @@
 # Define o diretório do script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Muda para o diretório do script
-cd "$DIR"
+# Muda para o diretório raiz do projeto
+cd "$DIR/.."
 
 # Verifica se o Python está instalado
 if ! command -v python3 &> /dev/null; then
@@ -24,7 +24,7 @@ fi
 
 # Executa o programa
 echo "Iniciando Timer Tool..."
-python3 contador_horas.py
+python3 -m horas_trabalhadas.contador_horas
 
 # Captura o código de saída
 EXIT_CODE=$?

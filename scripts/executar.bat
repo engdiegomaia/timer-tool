@@ -2,7 +2,7 @@
 REM Script para executar o Timer Tool no Windows
 
 REM Define o diretório do script
-cd /d "%~dp0"
+cd /d "%~dp0\.."
 
 REM Verifica se o Python está instalado
 python --version >nul 2>&1
@@ -26,7 +26,7 @@ if errorlevel 1 (
 
 REM Executa o programa
 echo Iniciando Timer Tool...
-python contador_horas.py
+python -m horas_trabalhadas.contador_horas
 
 REM Verifica se houve erro
 if errorlevel 1 (
