@@ -4,6 +4,9 @@ REM Script para executar o Timer Tool no Windows
 REM Define o diretório do script
 cd /d "%~dp0\.."
 
+REM Adiciona o diretório src ao PYTHONPATH
+set PYTHONPATH=%CD%\src;%PYTHONPATH%
+
 REM Verifica se o Python está instalado
 python --version >nul 2>&1
 if errorlevel 1 (
@@ -12,6 +15,16 @@ if errorlevel 1 (
     echo Download: https://www.python.org/downloads/
     pause
     exit /b 1
+)
+
+REM Verifica se o pythonw está disponível
+where pythonw >nul 2>&1
+if errorlevel 1 (
+    REM Se pythonw não estiver disponível, usa python normal
+    set PYTHON_CMD=python
+) else (
+    REM Usa pythonw para não mostrar o terminal
+    set PYTHON_CMD=pythonw
 )
 
 REM Verifica se o tkinter está disponível
@@ -24,17 +37,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Executa o programa
-echo Iniciando Timer Tool...
-python -m horas_trabalhadas.contador_horas
+REM Executa o programa sem mostrar o terminal
+start "" %PYTHON_CMD% -m horas_trabalhadas.contador_horas
 
-REM Verifica se houve erro
-if errorlevel 1 (
-    echo.
-    echo O programa terminou com erro.
-    pause
-    exit /b 1
-)
-
-exit /b 0
+REM Fecha o terminal imediatamente
+exit
 
