@@ -35,9 +35,9 @@ class ContadorHoras:
     def __init__(self, root):
         self.root = root
         self.root.title("Timer Tool — Ponto e Horas")
-        self.root.geometry("520x620")
+        self.root.geometry("830x720")
         self.root.resizable(True, True)
-        self.root.minsize(480, 560)
+        self.root.minsize(830, 720)
 
         self.centralizar_janela()
         self._configurar_estilos()
@@ -87,6 +87,7 @@ class ContadorHoras:
             self.style.theme_use("default")
         self.style.configure("TFrame", background="#f0f4f8")
         self.style.configure("Card.TFrame", background="#ffffff", relief="flat")
+        self.style.configure("CardRunning.TFrame", background="#ecfdf5", relief="flat")
         self.style.configure(
             "TLabel",
             background="#f0f4f8",
@@ -262,38 +263,36 @@ class ContadorHoras:
         card_projeto.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
         card_projeto.grid_columnconfigure(0, weight=1)
 
-        ttk.Label(card_projeto, text="Projeto", style="Section.TLabel").grid(
+        ttk.Label(card_projeto, text="Projeto (selecione ou digite um novo)", style="Section.TLabel").grid(
             row=0, column=0, sticky=tk.W, pady=(0, 8)
         )
         self.projeto_var = tk.StringVar()
         self.dropdown_projetos = ttk.Combobox(
-            card_projeto, textvariable=self.projeto_var, state="readonly", width=42
+            card_projeto, textvariable=self.projeto_var, width=44
         )
-        self.dropdown_projetos.grid(row=1, column=0, pady=(0, 12))
+        self.dropdown_projetos.grid(row=1, column=0, pady=(0, 4))
 
-        ttk.Label(card_projeto, text="Ou novo projeto", style="Section.TLabel").grid(
-            row=2, column=0, sticky=tk.W, pady=(0, 8)
-        )
-        self.novo_projeto_var = tk.StringVar()
-        self.entrada_novo_projeto = ttk.Entry(
-            card_projeto, textvariable=self.novo_projeto_var, width=44
-        )
-        self.entrada_novo_projeto.grid(row=3, column=0, pady=(0, 4))
+        self.card_ponto = ttk.Frame(main_frame, style="Card.TFrame", padding="20")
+        self.card_ponto.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
+        self.card_ponto.grid_columnconfigure(0, weight=1)
 
-        card_ponto = ttk.Frame(main_frame, style="Card.TFrame", padding="20")
-        card_ponto.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
-        card_ponto.grid_columnconfigure(0, weight=1)
-
-        ttk.Label(card_ponto, text="Registro de ponto", style="Section.TLabel").grid(
+        ttk.Label(self.card_ponto, text="Registro de ponto", style="Section.TLabel").grid(
             row=0, column=0, pady=(0, 12)
         )
-        self.label_tempo = ttk.Label(card_ponto, text="00:00:00", style="Timer.TLabel")
+        self.label_tempo = ttk.Label(self.card_ponto, text="00:00:00", style="Timer.TLabel")
         self.label_tempo.grid(row=1, column=0, pady=(0, 4))
-        self.label_entrada = ttk.Label(card_ponto, text="", style="TLabel")
-        self.label_entrada.grid(row=2, column=0, pady=(0, 16))
+        self.label_entrada = ttk.Label(self.card_ponto, text="", style="TLabel")
+        self.label_entrada.grid(row=2, column=0, pady=(0, 4))
+        self.label_em_andamento = ttk.Label(
+            self.card_ponto, text="● Timer em andamento", foreground="#059669", font=("Segoe UI", 9, "bold")
+        )
+        self.label_em_andamento.grid(row=3, column=0, pady=(0, 12))
+        self.label_em_andamento.grid_remove()
 
-        botoes_frame = ttk.Frame(card_ponto)
-        botoes_frame.grid(row=3, column=0, pady=(0, 4))
+        botoes_frame = ttk.Frame(self.card_ponto)
+        botoes_frame.grid(row=4, column=0, pady=(0, 4))
+        botoes_sec_frame = ttk.Frame(self.card_ponto)
+        botoes_sec_frame.grid(row=5, column=0, pady=(4, 0))
         self.btn_entrada = ttk.Button(
             botoes_frame,
             text="Ponto de Entrada",
@@ -311,20 +310,30 @@ class ContadorHoras:
         )
         self.btn_saida.grid(row=0, column=1, padx=6)
         self.btn_editar_ponto = ttk.Button(
-            card_ponto,
+            botoes_sec_frame,
             text="Editar ponto",
             command=self.abrir_editar_ponto,
             width=18,
         )
-        self.btn_editar_ponto.grid(row=0, column=2, padx=6)
+        self.btn_editar_ponto.pack(side=tk.LEFT, padx=4)
+        self.btn_adicionar_ponto = ttk.Button(
+            botoes_sec_frame,
+            text="Adicionar ponto",
+            command=self.abrir_adicionar_ponto,
+            width=18,
+        )
+        self.btn_adicionar_ponto.pack(side=tk.LEFT, padx=4)
 
+        self.label_status = ttk.Label(main_frame, text="", style="TLabel", foreground="#059669")
+        self.label_status.grid(row=3, column=0, pady=(4, 0))
+        self._status_after_id = None
         self.label_total = ttk.Label(main_frame, text="", style="Total.TLabel")
-        self.label_total.grid(row=3, column=0, pady=(8, 2))
+        self.label_total.grid(row=4, column=0, pady=(8, 2))
         self.label_total_hoje = ttk.Label(main_frame, text="", style="Total.TLabel")
-        self.label_total_hoje.grid(row=4, column=0, pady=(0, 16))
+        self.label_total_hoje.grid(row=5, column=0, pady=(0, 16))
 
         card_relatorios = ttk.Frame(main_frame, style="Card.TFrame", padding="16")
-        card_relatorios.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
+        card_relatorios.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
         card_relatorios.grid_columnconfigure(0, weight=1)
 
         ttk.Label(card_relatorios, text="Relatórios", style="Section.TLabel").grid(
@@ -354,14 +363,34 @@ class ContadorHoras:
         self.btn_relatorio_avancado.grid(row=2, column=0, columnspan=3, padx=4, pady=(4, 0))
 
         self.dropdown_projetos.bind("<<ComboboxSelected>>", self.atualizar_total_projeto)
+        self.dropdown_projetos.bind("<FocusOut>", self._ao_sair_projeto)
+        self.root.bind("<Return>", self._ao_tecla_enter)
+
+    def _ao_sair_projeto(self, event=None):
+        self.atualizar_total_projeto()
+
+    def _ao_tecla_enter(self, event=None):
+        if self.contando:
+            return
+        if self.obter_projeto_selecionado():
+            self.ponto_entrada()
+
+    def _mostrar_status_temporario(self, mensagem, segundos=5):
+        if self._status_after_id:
+            self.root.after_cancel(self._status_after_id)
+        self.label_status.config(text=mensagem)
+        def _limpar():
+            self.label_status.config(text="")
+            self._status_after_id = None
+        self._status_after_id = self.root.after(segundos * 1000, _limpar)
 
     def atualizar_dropdown_projetos(self):
         projetos = sorted(self.historico.keys())
         logger.debug("Atualizando dropdown de projetos: %s", projetos)
         self.dropdown_projetos["values"] = projetos
-        if projetos:
+        if projetos and not self.projeto_var.get().strip():
             self.dropdown_projetos.current(0)
-            self.atualizar_total_projeto()
+        self.atualizar_total_projeto()
 
     def obter_total_hoje_projeto(self, projeto):
         """Retorna total de segundos trabalhados hoje no projeto (inclui sessão em andamento se for o mesmo)."""
@@ -401,13 +430,7 @@ class ContadorHoras:
             self.label_total_hoje.config(text="")
 
     def obter_projeto_selecionado(self):
-        novo_projeto = self.novo_projeto_var.get().strip()
-        projeto_existente = self.projeto_var.get().strip()
-        if novo_projeto:
-            return novo_projeto
-        if projeto_existente:
-            return projeto_existente
-        return None
+        return self.projeto_var.get().strip() or None
 
     def ponto_entrada(self):
         """Registra ponto de entrada e inicia o cronômetro."""
@@ -427,8 +450,8 @@ class ContadorHoras:
 
         self.btn_entrada.config(state="disabled")
         self.dropdown_projetos.config(state="disabled")
-        self.entrada_novo_projeto.config(state="disabled")
         self.btn_saida.config(state="normal")
+        self.label_em_andamento.grid()
 
         dt_entrada = datetime.fromtimestamp(self.tempo_inicio)
         self.label_entrada.config(text=f"Entrada: {dt_entrada.strftime('%d/%m/%Y %H:%M')}")
@@ -483,24 +506,23 @@ class ContadorHoras:
             self.salvar_historico()
 
         self.btn_entrada.config(state="normal")
-        self.dropdown_projetos.config(state="readonly")
-        self.entrada_novo_projeto.config(state="normal")
+        self.dropdown_projetos.config(state="normal")
         self.btn_saida.config(state="disabled")
         self.label_entrada.config(text="")
+        self.label_em_andamento.grid_remove()
         self.projeto_em_andamento = None
-        self.novo_projeto_var.set("")
         self.atualizar_dropdown_projetos()
         self.label_tempo.config(text="00:00:00")
 
         horas, resto = divmod(int(tempo_trabalhado), 3600)
         minutos, segundos = divmod(resto, 60)
         if projeto:
-            messagebox.showinfo(
-                "Ponto de saída",
-                f"Saída registrada para '{projeto}'.\n"
-                f"Entrada: {data_hora_inicio.strftime('%H:%M')} — Saída: {data_hora_fim.strftime('%H:%M')}\n"
-                f"Duração: {horas:02d}:{minutos:02d}:{segundos:02d}",
+            msg = (
+                f"Saída registrada: {projeto} — "
+                f"{data_hora_inicio.strftime('%H:%M')} a {data_hora_fim.strftime('%H:%M')} "
+                f"({horas:02d}:{minutos:02d}:{segundos:02d})"
             )
+            self._mostrar_status_temporario(msg, 6)
 
     def atualizar_display_tempo(self):
         if self.contando:
@@ -515,6 +537,84 @@ class ContadorHoras:
         """Recalcula total_segundos do projeto a partir das sessões."""
         sessoes = self.historico[projeto].get("sessoes", [])
         self.historico[projeto]["total_segundos"] = sum(s["duracao_segundos"] for s in sessoes)
+
+    def abrir_adicionar_ponto(self):
+        """Abre janela para adicionar um ponto manualmente (data/hora entrada e saída)."""
+        janela = tk.Toplevel(self.root)
+        janela.title("Adicionar ponto manualmente")
+        janela.transient(self.root)
+        janela.grab_set()
+
+        frame = ttk.Frame(janela, padding="20")
+        frame.pack()
+
+        ttk.Label(frame, text="Projeto", style="Section.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        projetos = sorted(self.historico.keys())
+        projeto_var = tk.StringVar(value=self.projeto_var.get() or (projetos[0] if projetos else ""))
+        combo_projeto = ttk.Combobox(frame, textvariable=projeto_var, values=projetos, width=36)
+        combo_projeto.grid(row=0, column=1, padx=8, pady=4)
+        if projetos:
+            combo_projeto.set(projeto_var.get())
+
+        hoje = datetime.now()
+        ttk.Label(frame, text="Data entrada (DD/MM/AAAA):").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Label(frame, text="Hora entrada (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Label(frame, text="Data saída (DD/MM/AAAA):").grid(row=3, column=0, sticky=tk.W, pady=4)
+        ttk.Label(frame, text="Hora saída (HH:MM):").grid(row=4, column=0, sticky=tk.W, pady=4)
+
+        v_data_ent = tk.StringVar(value=hoje.strftime("%d/%m/%Y"))
+        v_hora_ent = tk.StringVar(value="08:00")
+        v_data_sai = tk.StringVar(value=hoje.strftime("%d/%m/%Y"))
+        v_hora_sai = tk.StringVar(value="17:00")
+        ttk.Entry(frame, textvariable=v_data_ent, width=14).grid(row=1, column=1, padx=8, pady=4)
+        ttk.Entry(frame, textvariable=v_hora_ent, width=8).grid(row=2, column=1, padx=8, pady=4)
+        ttk.Entry(frame, textvariable=v_data_sai, width=14).grid(row=3, column=1, padx=8, pady=4)
+        ttk.Entry(frame, textvariable=v_hora_sai, width=8).grid(row=4, column=1, padx=8, pady=4)
+
+        def parse_data_hora(data_str, hora_str):
+            try:
+                return datetime.strptime(f"{data_str.strip()} {hora_str.strip()}", "%d/%m/%Y %H:%M")
+            except ValueError:
+                return None
+
+        def salvar():
+            projeto = projeto_var.get().strip()
+            if not projeto:
+                messagebox.showwarning("Aviso", "Informe o projeto.")
+                return
+            di = parse_data_hora(v_data_ent.get(), v_hora_ent.get())
+            ds = parse_data_hora(v_data_sai.get(), v_hora_sai.get())
+            if di is None:
+                messagebox.showerror("Erro", "Data/hora de entrada inválida. Use DD/MM/AAAA e HH:MM.")
+                return
+            if ds is None:
+                messagebox.showerror("Erro", "Data/hora de saída inválida. Use DD/MM/AAAA e HH:MM.")
+                return
+            if ds <= di:
+                messagebox.showerror("Erro", "A saída deve ser posterior à entrada.")
+                return
+            duracao = (ds - di).total_seconds()
+            sessao = {
+                "data": di.isoformat(),
+                "data_saida": ds.isoformat(),
+                "duracao_segundos": duracao,
+            }
+            if projeto in self.historico:
+                self.historico[projeto]["total_segundos"] += duracao
+                self.historico[projeto]["sessoes"].append(sessao)
+            else:
+                self.historico[projeto] = {"total_segundos": duracao, "sessoes": [sessao]}
+            self.salvar_historico()
+            self.atualizar_dropdown_projetos()
+            self.atualizar_total_projeto()
+            logger.debug("Ponto adicionado manualmente: %s %s a %s", projeto, di, ds)
+            messagebox.showinfo("Sucesso", "Ponto adicionado.")
+            janela.destroy()
+
+        btns = ttk.Frame(frame)
+        btns.grid(row=5, column=0, columnspan=2, pady=16)
+        ttk.Button(btns, text="Adicionar", command=salvar).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Cancelar", command=janela.destroy).pack(side=tk.LEFT, padx=4)
 
     def abrir_editar_ponto(self):
         """Abre janela para listar, editar ou excluir pontos existentes."""
