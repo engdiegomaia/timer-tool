@@ -16,6 +16,8 @@ import time
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
+HORAS_CLT_DIARIAS_SEG = 8 * 3600  # 8 horas diárias (CLT)
+
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -330,10 +332,12 @@ class ContadorHoras:
         self.label_total = ttk.Label(main_frame, text="", style="Total.TLabel")
         self.label_total.grid(row=4, column=0, pady=(8, 2))
         self.label_total_hoje = ttk.Label(main_frame, text="", style="Total.TLabel")
-        self.label_total_hoje.grid(row=5, column=0, pady=(0, 16))
+        self.label_total_hoje.grid(row=5, column=0, pady=(0, 2))
+        self.label_banco_horas = ttk.Label(main_frame, text="", style="Total.TLabel")
+        self.label_banco_horas.grid(row=6, column=0, pady=(0, 16))
 
         card_relatorios = ttk.Frame(main_frame, style="Card.TFrame", padding="16")
-        card_relatorios.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
+        card_relatorios.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=(0, 12))
         card_relatorios.grid_columnconfigure(0, weight=1)
 
         ttk.Label(card_relatorios, text="Relatórios", style="Section.TLabel").grid(
@@ -425,9 +429,14 @@ class ContadorHoras:
             self.label_total_hoje.config(
                 text=f"Hoje neste projeto: {h:02d}:{m:02d}:{s:02d}"
             )
+            banco = self.obter_banco_horas_projeto(projeto)
+            self.label_banco_horas.config(
+                text=f"Banco de horas (vs 8h/dia): {self.formatar_saldo_diario(banco)}"
+            )
         else:
             self.label_total.config(text="")
             self.label_total_hoje.config(text="")
+            self.label_banco_horas.config(text="")
 
     def obter_projeto_selecionado(self):
         return self.projeto_var.get().strip() or None
@@ -633,7 +642,7 @@ class ContadorHoras:
             row=0, column=0, sticky=tk.W, pady=(0, 8)
         )
 
-        colunas = ("projeto", "data_entrada", "hora_entrada", "data_saida", "hora_saida", "duracao")
+        colunas = ("projeto", "data_entrada", "hora_entrada", "data_saida", "hora_saida", "duracao", "saldo")
         tree = ttk.Treeview(frame, columns=colunas, show="headings", height=14, selectmode="browse")
         tree.heading("projeto", text="Projeto")
         tree.heading("data_entrada", text="Data entrada")
@@ -641,12 +650,14 @@ class ContadorHoras:
         tree.heading("data_saida", text="Data saída")
         tree.heading("hora_saida", text="Hora saída")
         tree.heading("duracao", text="Duração")
+        tree.heading("saldo", text="Saldo (vs 8h)")
         tree.column("projeto", width=140)
         tree.column("data_entrada", width=100)
         tree.column("hora_entrada", width=80)
         tree.column("data_saida", width=100)
         tree.column("hora_saida", width=80)
         tree.column("duracao", width=80)
+        tree.column("saldo", width=90)
         scroll = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=tree.yview)
         tree.configure(yscrollcommand=scroll.set)
         tree.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), pady=(0, 8))
@@ -659,8 +670,17 @@ class ContadorHoras:
                 tree.delete(item)
             itens_para_sessao.clear()
             for projeto in sorted(self.historico.keys()):
-                for i, sessao in enumerate(self.historico[projeto].get("sessoes", [])):
+                sessoes_proj = self.historico[projeto].get("sessoes", [])
+                sessoes_por_dia = {}
+                for sessao in sessoes_proj:
+                    data_sessao = datetime.fromisoformat(sessao["data"])
+                    chave_dia = data_sessao.strftime("%Y-%m-%d")
+                    if chave_dia not in sessoes_por_dia:
+                        sessoes_por_dia[chave_dia] = 0
+                    sessoes_por_dia[chave_dia] += sessao["duracao_segundos"]
+                for i, sessao in enumerate(sessoes_proj):
                     di = datetime.fromisoformat(sessao["data"])
+                    chave_dia = di.strftime("%Y-%m-%d")
                     data_ent = di.strftime("%d/%m/%Y")
                     hora_ent = di.strftime("%H:%M")
                     if "data_saida" in sessao:
@@ -671,7 +691,9 @@ class ContadorHoras:
                         data_sai = "-"
                         hora_sai = "-"
                     dur = self.formatar_duracao(sessao["duracao_segundos"])
-                    item_id = tree.insert("", tk.END, values=(projeto, data_ent, hora_ent, data_sai, hora_sai, dur))
+                    saldo_dia = sessoes_por_dia.get(chave_dia, 0) - HORAS_CLT_DIARIAS_SEG
+                    saldo_str = self.formatar_saldo_diario(saldo_dia)
+                    item_id = tree.insert("", tk.END, values=(projeto, data_ent, hora_ent, data_sai, hora_sai, dur, saldo_str))
                     itens_para_sessao[item_id] = (projeto, i)
 
         preencher_tree()
@@ -801,6 +823,31 @@ class ContadorHoras:
         horas, resto = divmod(int(segundos), 3600)
         minutos, segundos_rest = divmod(resto, 60)
         return f"{horas:02d}:{minutos:02d}:{segundos_rest:02d}"
+
+    def formatar_saldo_diario(self, segundos):
+        """Formata saldo diário (sobra/déficit) em relação às 8h. Ex: '+01:30' ou '-00:45'."""
+        s = int(segundos)
+        sinal = "+" if s >= 0 else "-"
+        s = abs(s)
+        horas, resto = divmod(s, 3600)
+        minutos, segs = divmod(resto, 60)
+        return f"{sinal}{horas:02d}:{minutos:02d}:{segs:02d}"
+
+    def obter_banco_horas_projeto(self, projeto):
+        """Retorna banco de horas acumulativo do projeto (soma dos saldos diários vs 8h)."""
+        if not projeto or projeto not in self.historico:
+            return 0
+        banco = 0
+        sessoes_por_dia = {}
+        for sessao in self.historico[projeto].get("sessoes", []):
+            data_sessao = datetime.fromisoformat(sessao["data"]).date()
+            chave = data_sessao.isoformat()
+            if chave not in sessoes_por_dia:
+                sessoes_por_dia[chave] = 0
+            sessoes_por_dia[chave] += sessao["duracao_segundos"]
+        for total_dia in sessoes_por_dia.values():
+            banco += total_dia - HORAS_CLT_DIARIAS_SEG
+        return banco
 
     def gerar_log_semanal(self):
         hoje = datetime.now()
@@ -1094,9 +1141,18 @@ class ContadorHoras:
         elements.append(Spacer(1, 16))
 
         total_geral = sum(d["total_segundos"] for d in sessoes_periodo.values())
+        sessoes_por_dia_pdf = {}
+        for projeto, dados in sessoes_periodo.items():
+            for sessao in dados["sessoes"]:
+                data_sessao = datetime.fromisoformat(sessao["data"])
+                chave_dia = data_sessao.strftime("%Y-%m-%d")
+                if chave_dia not in sessoes_por_dia_pdf:
+                    sessoes_por_dia_pdf[chave_dia] = 0
+                sessoes_por_dia_pdf[chave_dia] += sessao["duracao_segundos"]
+        banco_periodo_pdf = sum(t - HORAS_CLT_DIARIAS_SEG for t in sessoes_por_dia_pdf.values())
         elements.append(
             Paragraph(
-                f"Total geral: {self.formatar_duracao(total_geral)}",
+                f"Total geral: {self.formatar_duracao(total_geral)} — Banco de horas (vs 8h/dia): {self.formatar_saldo_diario(banco_periodo_pdf)}",
                 styles["Normal"],
             )
         )
@@ -1107,9 +1163,17 @@ class ContadorHoras:
             elements.append(
                 Paragraph(f"<b>{projeto}</b> — Total: {self.formatar_duracao(dados['total_segundos'])}", styles["Normal"])
             )
-            table_data = [["Data", "Entrada", "Saída", "Duração"]]
+            sessoes_por_dia_proj = {}
+            for s in dados["sessoes"]:
+                data_sessao = datetime.fromisoformat(s["data"])
+                chave_dia = data_sessao.strftime("%Y-%m-%d")
+                if chave_dia not in sessoes_por_dia_proj:
+                    sessoes_por_dia_proj[chave_dia] = 0
+                sessoes_por_dia_proj[chave_dia] += s["duracao_segundos"]
+            table_data = [["Data", "Entrada", "Saída", "Duração", "Saldo (vs 8h)"]]
             for s in sorted(dados["sessoes"], key=lambda x: x["data"]):
                 di = datetime.fromisoformat(s["data"])
+                chave_dia = di.strftime("%Y-%m-%d")
                 entrada = di.strftime("%d/%m/%Y %H:%M")
                 if "data_saida" in s:
                     ds = datetime.fromisoformat(s["data_saida"])
@@ -1117,8 +1181,9 @@ class ContadorHoras:
                 else:
                     saida = "-"
                 dur = self.formatar_duracao(s["duracao_segundos"])
-                table_data.append([entrada.split()[0], entrada.split()[1], saida, dur])
-            t = Table(table_data, colWidths=[3 * cm, 2.5 * cm, 2 * cm, 2 * cm])
+                saldo_dia = sessoes_por_dia_proj.get(chave_dia, 0) - HORAS_CLT_DIARIAS_SEG
+                table_data.append([entrada.split()[0], entrada.split()[1], saida, dur, self.formatar_saldo_diario(saldo_dia)])
+            t = Table(table_data, colWidths=[2.5 * cm, 2 * cm, 1.5 * cm, 2 * cm, 2.5 * cm])
             t.setStyle(
                 TableStyle(
                     [
@@ -1196,13 +1261,22 @@ class ContadorHoras:
         ).grid(row=1, column=0, sticky=tk.N, pady=(0, 8))
 
         total_geral_segundos = sum(d["total_segundos"] for d in sessoes_periodo.values())
+        sessoes_por_dia_calc = {}
+        for projeto, dados in sessoes_periodo.items():
+            for sessao in dados["sessoes"]:
+                data_sessao = datetime.fromisoformat(sessao["data"])
+                chave_dia = data_sessao.strftime("%Y-%m-%d")
+                if chave_dia not in sessoes_por_dia_calc:
+                    sessoes_por_dia_calc[chave_dia] = 0
+                sessoes_por_dia_calc[chave_dia] += sessao["duracao_segundos"]
+        banco_periodo = sum(total_dia - HORAS_CLT_DIARIAS_SEG for total_dia in sessoes_por_dia_calc.values())
         ttk.Label(
             frame_principal,
-            text=f"Total geral: {self.formatar_duracao(total_geral_segundos)}",
+            text=f"Total geral: {self.formatar_duracao(total_geral_segundos)}  |  Banco de horas (vs 8h/dia): {self.formatar_saldo_diario(banco_periodo)}",
             style="Total.TLabel",
         ).grid(row=2, column=0, pady=(0, 12))
 
-        canvas = tk.Canvas(frame_principal)
+        canvas = tk.Canvas(frame_principal, highlightthickness=0)
         scrollbar = ttk.Scrollbar(frame_principal, orient="vertical", command=canvas.yview)
         frame_scrollavel = ttk.Frame(canvas)
 
@@ -1210,32 +1284,51 @@ class ContadorHoras:
             canvas.configure(scrollregion=canvas.bbox("all"))
 
         frame_scrollavel.bind("<Configure>", _on_configure)
-        canvas.create_window(0, 0, window=frame_scrollavel, anchor="n")
+        canvas_window = canvas.create_window(0, 0, window=frame_scrollavel, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        def _on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        canvas.bind("<Configure>", _on_canvas_configure)
         canvas.grid(row=3, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         scrollbar.grid(row=3, column=1, sticky=(tk.N, tk.S))
         frame_principal.grid_columnconfigure(0, weight=1)
 
-        for projeto, dados in sorted(sessoes_periodo.items()):
-            lf = ttk.LabelFrame(frame_scrollavel, text=projeto, padding="10")
-            lf.pack(fill=tk.X, pady=6, padx=4)
-            ttk.Label(
-                lf, text=f"Total: {self.formatar_duracao(dados['total_segundos'])}"
-            ).pack(anchor=tk.W)
-            for i, sessao in enumerate(
-                sorted(dados["sessoes"], key=lambda x: x["data"]), 1
-            ):
+        sessoes_por_dia = {}
+        for projeto, dados in sessoes_periodo.items():
+            for sessao in dados["sessoes"]:
+                data_sessao = datetime.fromisoformat(sessao["data"])
+                chave_dia = data_sessao.strftime("%Y-%m-%d")
+                if chave_dia not in sessoes_por_dia:
+                    sessoes_por_dia[chave_dia] = {"total_segundos": 0, "sessoes": []}
+                sessoes_por_dia[chave_dia]["total_segundos"] += sessao["duracao_segundos"]
+                sessoes_por_dia[chave_dia]["sessoes"].append((projeto, sessao))
+
+        for chave_dia in sorted(sessoes_por_dia.keys(), reverse=True):
+            dados_dia = sessoes_por_dia[chave_dia]
+            data_obj = datetime.strptime(chave_dia, "%Y-%m-%d")
+            data_str = data_obj.strftime("%d/%m/%Y")
+
+            partes = []
+            for projeto, sessao in sorted(dados_dia["sessoes"], key=lambda x: x[1]["data"]):
                 data_sessao = datetime.fromisoformat(sessao["data"])
                 duracao = self.formatar_duracao(sessao["duracao_segundos"])
-                saida_str = ""
                 if "data_saida" in sessao:
                     ds = datetime.fromisoformat(sessao["data_saida"])
-                    saida_str = f" — Saída: {ds.strftime('%H:%M')}"
-                texto = (
-                    f"{i}. {data_sessao.strftime('%d/%m/%Y %H:%M')}{saida_str} — Duração: {duracao}"
-                )
-                ttk.Label(lf, text=texto).pack(anchor=tk.W)
+                    partes.append(f"[{projeto}] {data_sessao.strftime('%H:%M')}-{ds.strftime('%H:%M')} ({duracao})")
+                else:
+                    partes.append(f"[{projeto}] {data_sessao.strftime('%H:%M')} ({duracao})")
+
+            saldo_dia = dados_dia["total_segundos"] - HORAS_CLT_DIARIAS_SEG
+            linha = (
+                f"{data_str}  │  {'  |  '.join(partes)}  │  "
+                f"Total: {self.formatar_duracao(dados_dia['total_segundos'])}  │  "
+                f"Saldo (vs 8h): {self.formatar_saldo_diario(saldo_dia)}"
+            )
+            lf = ttk.Frame(frame_scrollavel, padding="8")
+            lf.pack(fill=tk.X, pady=3, padx=4)
+            ttk.Label(lf, text=linha, wraplength=1200).pack(anchor=tk.W)
 
         def fechar():
             janela_log.destroy()
